@@ -4,7 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
-import android.util.Log;
+import android.opengl.GLES30;
 
 public class GLTextureOES extends GLTexture2D {
 
@@ -36,7 +36,8 @@ public class GLTextureOES extends GLTexture2D {
     }
 
     @Override
-    public void draw(float[] mvpMatrix) {
+    public void draw() {
+        GLES20.glViewport(0, 0, mWidth, mHeight);
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
         Utils.checkGlError("glClear");
@@ -50,19 +51,16 @@ public class GLTextureOES extends GLTexture2D {
 
         int positionHandle = GLES20.glGetAttribLocation(mProgram, "aPosition");
         GLES20.glEnableVertexAttribArray(positionHandle);
-        vertexBuffer.position(0);
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
 
         int maTextureHandle = GLES20.glGetAttribLocation(mProgram, "aTextureCoord");
         GLES20.glEnableVertexAttribArray(maTextureHandle);
-        uvBuffer.position(0);
         GLES20.glVertexAttribPointer(maTextureHandle, 2, GLES20.GL_FLOAT, false, 0, uvBuffer);
 
-        int mvpMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uMVPMatrix");
-        GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0);
-
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mTextureID);
-        GLES20.glDrawElements( GLES20.GL_TRIANGLES, drawOrder.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+        GLES20.glDrawElements( GLES20.GL_TRIANGLES, indexData.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
         Utils.checkGlError("glDrawElements");
+
     }
 }

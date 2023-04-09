@@ -1,12 +1,9 @@
 package com.unity3d.player;
 
 import android.content.Context;
-import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
-
-import com.unity3d.player.Utils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,20 +24,20 @@ public class GLTexture2D {
 
     // 顶点坐标
     static final int COORDS_PER_VERTEX = 3;
-    static float squareCoords[] = {
+    static float vertexData[] = {
             -1f, 1f, 0.0f,
             -1f, -1f, 0.0f,
             1f, -1f, 0.0f,
             1f, 1f, 0.0f
     };
     // 顶点绘制顺序
-    protected short drawOrder[] = {
+    static short indexData[] = {
             0, 1, 2,
             0, 2, 3
     };
     protected final int vertexStride = COORDS_PER_VERTEX * 4; // 4 bytes per vertex
 
-    float[] uvs = new float[] {
+    static float[] uvData = new float[] {
             0.0f, 0.0f, // top left (V2)
             0.0f, 1.0f, // bottom left (V1)
             1.0f, 1.0f, // top right (V4)
@@ -95,24 +92,24 @@ public class GLTexture2D {
 
     protected void initVertex() {
         // init VBO
-        ByteBuffer vByteBuffer = ByteBuffer.allocateDirect(squareCoords.length * 4); // 4 bytes per float
+        ByteBuffer vByteBuffer = ByteBuffer.allocateDirect(vertexData.length * 4); // 4 bytes per float
         vByteBuffer.order(ByteOrder.nativeOrder());
         vertexBuffer = vByteBuffer.asFloatBuffer();
-        vertexBuffer.put(squareCoords);
+        vertexBuffer.put(vertexData);
         vertexBuffer.position(0);
 
         // init drawOrder
-        ByteBuffer dByteBuffer = ByteBuffer.allocateDirect(drawOrder.length * 2); // 2 bytes per short
+        ByteBuffer dByteBuffer = ByteBuffer.allocateDirect(indexData.length * 2); // 2 bytes per short
         dByteBuffer.order(ByteOrder.nativeOrder());
         drawListBuffer = dByteBuffer.asShortBuffer();
-        drawListBuffer.put(drawOrder);
+        drawListBuffer.put(indexData);
         drawListBuffer.position(0);
 
         // init uv
-        ByteBuffer uvByteBuffer = ByteBuffer.allocateDirect(uvs.length * 4); // 4 bytes per float
+        ByteBuffer uvByteBuffer = ByteBuffer.allocateDirect(uvData.length * 4); // 4 bytes per float
         uvByteBuffer.order(ByteOrder.nativeOrder());
         uvBuffer = uvByteBuffer.asFloatBuffer();
-        uvBuffer.put(uvs);
+        uvBuffer.put(uvData);
         uvBuffer.position(0);
     }
 
@@ -146,7 +143,9 @@ public class GLTexture2D {
         return null;
     }
 
-    public void draw(float[] mvpMatrix) {
+    public void draw() {
+        GLES20.glViewport(0, 0, mWidth, mHeight);
+
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
         Utils.checkGlError("glClear");
@@ -158,19 +157,14 @@ public class GLTexture2D {
 
         int positionHandle = GLES20.glGetAttribLocation(mProgram, "aPosition");
         GLES20.glEnableVertexAttribArray(positionHandle);
-        vertexBuffer.position(0);
         GLES20.glVertexAttribPointer(positionHandle, 3, GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
 
         int maTextureHandle = GLES20.glGetAttribLocation(mProgram, "aTextureCoord");
         GLES20.glEnableVertexAttribArray(maTextureHandle);
-        uvBuffer.position(0);
         GLES20.glVertexAttribPointer(maTextureHandle, 2, GLES20.GL_FLOAT, false, 0, uvBuffer);
 
-        int mvpMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uMVPMatrix");
-        GLES20.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0);
-
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureID);
-        GLES20.glDrawElements(GLES20.GL_TRIANGLES, drawOrder.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, indexData.length, GLES20.GL_UNSIGNED_SHORT, drawListBuffer);
         Utils.checkGlError("glDrawElements");
     }
 

@@ -25,22 +25,22 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
     private GLTexture2D mUnityTexture;      //GL_TEXTURE_2D 用于在Unity里显示的贴图
     private FBO mFBO;
 
-    private boolean mFrameUpdated;
+    private boolean mFrameUpdated = false;
     private Camera mCamera;
     private int cameraWidth;
     private int cameraHeight;
 
     public void openCamera() {
         Log.d(TAG, "openCamera");
-        mFrameUpdated = false;
         mCamera = Camera.open(1);
         cameraWidth = mCamera.getParameters().getPreviewSize().width;
         cameraHeight = mCamera.getParameters().getPreviewSize().height;
 
-        // 利用OpenGL生成OES纹理并绑定到mSurfaceTexture
-        // 再把camera的预览数据设置显示到mSurfaceTexture，OpenGL就能拿到摄像头数据。
+        mUnityTexture = new GLTexture2D(UnityPlayer.currentActivity, cameraWidth, cameraHeight);
+        mFBO = new FBO(mUnityTexture);
         mTextureOES = new GLTextureOES(UnityPlayer.currentActivity, cameraWidth, cameraHeight);
         mSurfaceTexture = new SurfaceTexture(mTextureOES.getTextureID());
+        mSurfaceTexture.setDefaultBufferSize(cameraWidth, cameraHeight);
         mSurfaceTexture.setOnFrameAvailableListener(this);
         try {
             mCamera.setPreviewTexture(mSurfaceTexture);
@@ -48,10 +48,6 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
             e.printStackTrace();
         }
         mCamera.startPreview();
-    }
-
-    public boolean isFrameUpdated() {
-        return mFrameUpdated;
     }
 
     public int getWidth() {
@@ -68,18 +64,11 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
             mFrameUpdated = false;
             mSurfaceTexture.updateTexImage();
 
-            // 根据宽高创建Unity使用的GL_TEXTURE_2D纹理
-            if (mUnityTexture == null) {
-                mUnityTexture = new GLTexture2D(UnityPlayer.currentActivity, cameraWidth, cameraHeight);
-                mFBO = new FBO(mUnityTexture);
-            }
-            float[] mMVPMatrix = new float[16];
-            Matrix.setIdentityM(mMVPMatrix, 0);
             mFBO.FBOBegin();
-            GLES20.glViewport(0, 0, cameraWidth, cameraHeight);
-            mTextureOES.draw(mMVPMatrix);
+            mTextureOES.draw();
             mFBO.FBOEnd();
 
+            //这一句可以用unity中的GL.InvalidateState()替代,也是同样的效果
             Point screenSize = new Point();
             if (Build.VERSION.SDK_INT >= 17) {
                 UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getRealSize(screenSize);
@@ -89,6 +78,10 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
             GLES20.glViewport(0, 0, screenSize.x, screenSize.y);
             return mUnityTexture.getTextureID();
         }
+    }
+
+    public boolean isFrameUpdated() {
+        return mFrameUpdated;
     }
 
     @Override
