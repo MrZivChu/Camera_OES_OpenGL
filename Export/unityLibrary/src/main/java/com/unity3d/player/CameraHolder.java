@@ -20,9 +20,9 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
 
     private static final String TAG = "zwh";//CameraHolder.class.getSimpleName();
 
-    private SurfaceTexture mSurfaceTexture; //camera preview
-    private GLTextureOES mTextureOES;       //GL_TEXTURE_EXTERNAL_OES
-    private GLTexture2D mUnityTexture;      //GL_TEXTURE_2D 用于在Unity里显示的贴图
+    private SurfaceTexture mSurfaceTexture;
+    private GLTextureOES mTextureOES;
+    private GLTexture2D mUnityTexture;
     private FBO mFBO;
 
     private boolean mFrameUpdated = false;
@@ -39,6 +39,7 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
         mUnityTexture = new GLTexture2D(UnityPlayer.currentActivity, cameraWidth, cameraHeight);
         mFBO = new FBO(mUnityTexture);
         mTextureOES = new GLTextureOES(UnityPlayer.currentActivity, cameraWidth, cameraHeight);
+        // SurfaceTexture只能用GL_TEXTURE_EXTERNAL_OES,具体看SurfaceTexture说明
         mSurfaceTexture = new SurfaceTexture(mTextureOES.getTextureID());
         mSurfaceTexture.setDefaultBufferSize(cameraWidth, cameraHeight);
         mSurfaceTexture.setOnFrameAvailableListener(this);
@@ -68,7 +69,7 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
             mTextureOES.draw();
             mFBO.FBOEnd();
 
-            //这一句可以用unity中的GL.InvalidateState()替代,也是同样的效果
+            // 这一句可以用unity中的GL.InvalidateState()替代,也是同样的效果
             Point screenSize = new Point();
             if (Build.VERSION.SDK_INT >= 17) {
                 UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getRealSize(screenSize);
