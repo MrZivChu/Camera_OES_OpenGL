@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 
 public class GLTexture {
     private static final String TAG = "GLTexture";
-    private static final String imageFilePath = "/sdcard/1Atest/image.jpg";
+    private static final String imageFilePath = "/sdcard/image.jpg";
 
     private int mTextureID = 0;
     private int mTextureWidth = 0;

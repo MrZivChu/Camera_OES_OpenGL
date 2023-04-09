@@ -8,7 +8,9 @@ import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.os.Build;
 import android.util.Log;
+
 import com.unity3d.player.UnityPlayer;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Timer;
@@ -16,36 +18,28 @@ import java.util.TimerTask;
 
 public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
 
-    private static final String TAG = CameraHolder.class.getSimpleName();
+    private static final String TAG = "zwh";//CameraHolder.class.getSimpleName();
 
     private SurfaceTexture mSurfaceTexture; //camera preview
     private GLTextureOES mTextureOES;       //GL_TEXTURE_EXTERNAL_OES
     private GLTexture2D mUnityTexture;      //GL_TEXTURE_2D 用于在Unity里显示的贴图
     private FBO mFBO;
 
-    private GLTexture2D mUnityTextureCopy;  //GL_TEXTURE_2D 用于拷回Unity渲染结果
-    private FBO mFBOCopy;
-
-    private float[] mMVPMatrix = new float[16];
-    private boolean mFrameUpdated;  //帧是否更新
-    private boolean mIsCopyed = true;
-
+    private boolean mFrameUpdated;
     private Camera mCamera;
+    private int cameraWidth;
+    private int cameraHeight;
 
     public void openCamera() {
         Log.d(TAG, "openCamera");
         mFrameUpdated = false;
-        mMVPMatrix = new float[16];
-
-        if (mSurfaceTexture != null) {
-            mSurfaceTexture.release();
-        }
-
         mCamera = Camera.open(1);
+        cameraWidth = mCamera.getParameters().getPreviewSize().width;
+        cameraHeight = mCamera.getParameters().getPreviewSize().height;
 
         // 利用OpenGL生成OES纹理并绑定到mSurfaceTexture
         // 再把camera的预览数据设置显示到mSurfaceTexture，OpenGL就能拿到摄像头数据。
-        mTextureOES = new GLTextureOES(UnityPlayer.currentActivity, 0,0);
+        mTextureOES = new GLTextureOES(UnityPlayer.currentActivity, cameraWidth, cameraHeight);
         mSurfaceTexture = new SurfaceTexture(mTextureOES.getTextureID());
         mSurfaceTexture.setOnFrameAvailableListener(this);
         try {
@@ -54,13 +48,6 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
             e.printStackTrace();
         }
         mCamera.startPreview();
-
-    }
-
-    public void closeCamera() {
-        if (mCamera != null) {
-            mCamera.stopPreview();
-        }
     }
 
     public boolean isFrameUpdated() {
@@ -76,115 +63,36 @@ public class CameraHolder implements SurfaceTexture.OnFrameAvailableListener {
     }
 
     public int updateTexture() {
-        Log.d(TAG, "updateTexture: ");
+        Log.d(TAG, "updateTexture");
         synchronized (this) {
-            if (mFrameUpdated) { mFrameUpdated = false; }
-
+            mFrameUpdated = false;
             mSurfaceTexture.updateTexImage();
-            int width = mCamera.getParameters().getPreviewSize().width;
-            int height = mCamera.getParameters().getPreviewSize().height;
 
             // 根据宽高创建Unity使用的GL_TEXTURE_2D纹理
             if (mUnityTexture == null) {
-                Log.d(TAG, "width = " + width + ", height = " + height);
-                mUnityTexture = new GLTexture2D(UnityPlayer.currentActivity, width, height);
+                mUnityTexture = new GLTexture2D(UnityPlayer.currentActivity, cameraWidth, cameraHeight);
                 mFBO = new FBO(mUnityTexture);
             }
+            float[] mMVPMatrix = new float[16];
             Matrix.setIdentityM(mMVPMatrix, 0);
             mFBO.FBOBegin();
-            GLES20.glViewport(0, 0, width, height);
+            GLES20.glViewport(0, 0, cameraWidth, cameraHeight);
             mTextureOES.draw(mMVPMatrix);
             mFBO.FBOEnd();
 
-            Point size = new Point();
+            Point screenSize = new Point();
             if (Build.VERSION.SDK_INT >= 17) {
-                UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getRealSize(size);
+                UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getRealSize(screenSize);
             } else {
-                UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getSize(size);
+                UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getSize(screenSize);
             }
-            GLES20.glViewport(0, 0, size.x, size.y);
-
-
-            // 创建读出的GL_TEXTURE_2D纹理
-            if (mUnityTextureCopy == null) {
-                Log.d(TAG, "width = " + width + ", height = " + height);
-                mUnityTextureCopy = new GLTexture2D(UnityPlayer.currentActivity, size.x, size.y);
-                mFBOCopy = new FBO(mUnityTextureCopy);
-            }
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mUnityTextureCopy.mTextureID);
-            GLES20.glCopyTexSubImage2D(GLES20.GL_TEXTURE_2D, 0,0,0,0,0,size.x, size.y);
-            mFBOCopy.FBOBegin();
-//            // test是否是当前FBO
-//            GLES20.glClearColor(1,0,0,1);
-//            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-//            GLES20.glFinish();
-            int mImageWidth = size.x;
-            int mImageHeight = size.y;
-            Bitmap dest = Bitmap.createBitmap(mImageWidth, mImageHeight, Bitmap.Config.ARGB_8888);
-            final ByteBuffer buffer = ByteBuffer.allocateDirect(mImageWidth * mImageHeight * 4);
-            GLES20.glReadPixels(0, 0, mImageWidth, mImageHeight, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buffer);
-            dest.copyPixelsFromBuffer(buffer);
-            dest = null;
-            mFBOCopy.FBOEnd();
-
+            GLES20.glViewport(0, 0, screenSize.x, screenSize.y);
             return mUnityTexture.getTextureID();
         }
     }
 
-//    public boolean copyTexture() {
-//        Log.d(TAG, "copyTexture: ");
-//        synchronized (this) {
-//            if(mIsCopyed){
-//                mIsCopyed = false;
-//                UnityPlayer.UnitySendMessage("Plane","setIsLock","0");
-//                Point size = new Point();
-//                if (Build.VERSION.SDK_INT >= 17) {
-//                    UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getRealSize(size);
-//                } else {
-//                    UnityPlayer.currentActivity.getWindowManager().getDefaultDisplay().getSize(size);
-//                }
-//                if (mUnityTextureCopy == null) {
-//                    Log.d(TAG, "width = " + size.x + ", height = " + size.y);
-//                    // 根据宽高创建GL_TEXTURE_2D纹理
-//                    mUnityTextureCopy = new GLTexture2D(UnityPlayer.currentActivity, size.x, size.y);
-//                    mFBOCopy = new FBO(mUnityTextureCopy);
-//                }
-//                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,mUnityTextureCopy.mTextureID);
-//                GLES20.glCopyTexSubImage2D(GLES20.GL_TEXTURE_2D, 0,0,0,0,0,size.x, size.y);
-//                mFBOCopy.FBOBegin();
-//        //            GLES20.glClearColor(1,0,0,1);
-//        //            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-//                GLES20.glFinish();
-////                int mImageWidth = size.x;
-////                int mImageHeight = size.y;
-////                Bitmap dest = Bitmap.createBitmap(mImageWidth, mImageHeight, Bitmap.Config.ARGB_8888);
-////                final ByteBuffer buffer = ByteBuffer.allocateDirect(mImageWidth * mImageHeight * 4);
-////                GLES20.glReadPixels(0, 0, mImageWidth, mImageHeight, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, buffer);
-////                dest.copyPixelsFromBuffer(buffer);
-////                dest = null;
-//                //UnityPlayer.UnitySendMessage("Plane","callUpdate","str");
-//                mFBOCopy.FBOEnd();
-//
-////                //测试同步
-////                try {
-////                    Thread.sleep(1000);//休眠3秒
-////                } catch (InterruptedException e) {
-////                    e.printStackTrace();
-////                }
-////                Log.d(TAG, "run: Waiting 1 s");
-//
-//                UnityPlayer.UnitySendMessage("Plane","setIsLock","1");
-//                mIsCopyed = true;
-//                return mIsCopyed;
-//            }
-//            else
-//                return false;
-//        }
-//    }
-
     @Override
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-        //Log.d(TAG, "onFrameAvailable");
         mFrameUpdated = true;
     }
 }
